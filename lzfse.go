@@ -74,20 +74,24 @@ func DecodeBuffer(srcBuffer []byte) []byte {
 
 	scratch := make([]byte, DecodeScratchSize())
 	aux, _ := unsafe.Pointer(&scratch[0]), cgoAllocsUnknown
+	size := 0
 
-	for {
+	for i := 0; i < 16 && size < 50_000_000; i++ {
 		__ret := C.lzfse_decode_buffer(out, out_allocated, in, in_size, aux)
 		out_size := (C.size_t)(__ret)
 		// If output buffer was too small, grow and retry.
 		if out_size == 0 || out_size == out_allocated {
 			compRatio *= 2
-			dstBuffer = make([]byte, compRatio*len(srcBuffer))
+			size = compRatio * len(srcBuffer)
+			dstBuffer = make([]byte, size)
 			out, _ = (*C.uint8_t)(unsafe.Pointer((*sliceHeader)(unsafe.Pointer(&dstBuffer)).Data)), cgoAllocsUnknown
 			out_allocated, _ = (C.size_t)(compRatio*len(srcBuffer)), cgoAllocsUnknown
 		} else {
 			return dstBuffer[:out_size]
 		}
 	}
+
+	return dstBuffer[:0]
 }
 
 func testDecodeBuffer(t *testing.T, encBuf, wantBuf []byte) {
